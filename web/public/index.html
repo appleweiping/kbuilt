@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>kbuilt — 视频高质量下载</title>
+  <meta name="description" content="零安装、浏览器即用的视频下载器。YouTube / Bilibili / 抖音 / X / TikTok 等 20+ 站点。" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="terminal" id="app">
+    <header class="bar">
+      <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+      <span class="title">kbuilt — media downloader</span>
+      <span class="grow"></span>
+      <select id="lang" class="chip" aria-label="language"></select>
+      <button id="theme" class="chip" aria-label="toggle theme" title="theme">◐</button>
+    </header>
+
+    <section class="screen">
+      <pre class="banner" id="banner"></pre>
+
+      <div class="prompt-line">
+        <span class="ps1">kbuilt<span class="muted">@web</span>:~$</span>
+        <span class="typed" id="hint"></span>
+      </div>
+
+      <form id="form" class="input-row" autocomplete="off">
+        <span class="ps1">&gt;</span>
+        <input id="url" name="url" type="text" spellcheck="false" aria-label="video url" />
+      </form>
+
+      <div class="controls" id="controls">
+        <label><span data-t="quality"></span>
+          <select id="quality">
+            <option value="max">max</option>
+            <option value="2160">2160p</option>
+            <option value="1080" selected>1080p</option>
+            <option value="720">720p</option>
+            <option value="480">480p</option>
+          </select>
+        </label>
+        <label><span data-t="mode"></span>
+          <select id="mode">
+            <option value="auto" selected data-t="modeAuto"></option>
+            <option value="audio" data-t="modeAudio"></option>
+            <option value="mute" data-t="modeMute"></option>
+          </select>
+        </label>
+        <label><span data-t="audio"></span>
+          <select id="afmt">
+            <option value="best" selected>best</option>
+            <option value="mp3">mp3</option>
+            <option value="m4a">m4a</option>
+            <option value="opus">opus</option>
+            <option value="wav">wav</option>
+          </select>
+        </label>
+        <button type="button" id="go">⬇ <span data-t="download"></span></button>
+      </div>
+
+      <div class="log" id="log" aria-live="polite"></div>
+    </section>
+
+    <footer class="status" id="status">
+      <span id="engine-status"></span>
+      <span class="grow"></span>
+      <span class="muted" data-t="footerNote"></span>
+    </footer>
+  </main>
+
+  <script src="/config.js"></script>
+  <script src="/i18n.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

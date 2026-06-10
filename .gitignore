@@ -1,0 +1,21 @@
+# dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# secrets / local config
+.env
+.env.*
+engine/cookies.json
+web/public/config.local.js
+
+# test artifacts
+_test_download/
+*.part
+*.ytdl
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

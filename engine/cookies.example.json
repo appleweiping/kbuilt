@@ -1,0 +1,16 @@
+# Optional cookies for the kbuilt engine (cobalt).
+#
+# Copy to `cookies.json`, fill in real values, then set COOKIE_PATH=/cookies.json
+# in your HF Space and uncomment the volume mount (local) or commit the file
+# (HF — use a PRIVATE space if you do this, cookies are sensitive).
+#
+# Format: https://github.com/imputnet/cobalt/blob/main/docs/examples/cookies.example.json
+{
+    "youtube": [
+        "cookie_string_1_here",
+        "cookie_string_2_here"
+    ],
+    "instagram": [
+        "mid=...; ig_did=...; csrftoken=...; ds_user_id=...; sessionid=..."
+    ]
+}
