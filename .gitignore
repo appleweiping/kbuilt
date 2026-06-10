@@ -6,6 +6,8 @@ __pycache__/
 # secrets / local config
 .env
 .env.*
+.vercel/
+web/.vercel/
 engine/cookies.json
 web/public/config.local.js
 
@@ -19,3 +21,5 @@ _test_download/
 Thumbs.db
 .vscode/
 .idea/
+
+.vercel

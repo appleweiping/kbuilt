@@ -1,8 +1,8 @@
 // kbuilt — subtitle fetch + translate to Chinese (Vercel serverless function).
 //
-// Lightweight: pulls the video's caption track (text only, no media bytes) via
-// the cobalt engine's metadata where available, falls back to asking Claude to
-// translate any provided text. Stays well within Vercel free limits.
+// Lightweight: translates caption text when the client already has it. This
+// endpoint intentionally does not fetch video bytes or proxy media through
+// Vercel, so it stays well within Vercel's free limits.
 //
 // Env: ANTHROPIC_API_KEY (Claude). Optional: ENGINE_URL (the HF cobalt space).
 
@@ -17,14 +17,15 @@ export default async function handler(req) {
   let url, text;
   try { ({ url, text } = await req.json()); } catch { return json({ error: "bad json" }, 400); }
 
-  // If the client already extracted caption text, just translate it. Otherwise
-  // we can only note that caption extraction needs the engine / a caption URL.
+  // If the client already extracted caption text, just translate it. Automatic
+  // caption extraction is not wired yet because the public downloader path must
+  // never route media bytes through Vercel.
   if (!text) {
     return json({
       result:
-        "字幕翻译需要先拿到原始字幕轨。\n" +
-        "提示：很多站点（B站/YT）的 CC 字幕可由引擎附带返回；\n" +
-        "若该视频无内嵌字幕，则无法翻译。",
+        "字幕翻译需要先拿到原始字幕文本。\n" +
+        "当前公开站点不会通过 Vercel 抓取或代理视频/字幕流；\n" +
+        "若后续 UI 提供字幕文本，本接口会只翻译文本。",
     });
   }
 

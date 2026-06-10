@@ -102,7 +102,7 @@ function initControls() {
 // ---- engine health check -------------------------------------------------
 async function checkEngine() {
   const s = $("engine-status");
-  if (!ENGINE || ENGINE.includes("REPLACE-WITH-YOUR")) {
+  if (!ENGINE) {
     s.innerHTML = `<span class="down">● </span>${t("engineUnconfigured")}`;
     return;
   }
@@ -121,7 +121,7 @@ async function checkEngine() {
 async function startDownload() {
   const url = urlEl.value.trim();
   if (!url) { urlEl.focus(); return; }
-  if (!ENGINE || ENGINE.includes("REPLACE-WITH-YOUR")) {
+  if (!ENGINE) {
     clearLog();
     line(t("notConfigured"), "err");
     return;
@@ -137,6 +137,7 @@ async function startDownload() {
     downloadMode: $("mode").value,
     audioFormat: $("afmt").value,
     filenameStyle: "pretty",
+    localProcessing: "disabled",
   };
 
   const waking = line(t("contacting"), "info");
@@ -198,7 +199,7 @@ function handleResponse(data, originalUrl) {
     case "local-processing": {
       line(t("needsMerge"), "warn");
       line(t("needsMergeHint"), "dim");
-      (data.tunnel || []).forEach((u, i) => triggerSave(u, `${(data.output && data.output.filename) || "part"}-${i}`));
+      line(t("needsMergeTry"), "dim");
       offerAi(originalUrl);
       break;
     }

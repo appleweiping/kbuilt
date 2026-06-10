@@ -10,7 +10,7 @@ const cfgPath = path.join(__dirname, "public", "config.js");
 
 if (engine) {
   const normalized = engine.replace(/\/?$/, "/");
-  const content = `// generated at build time — do not edit by hand
+  const content = `// generated at build time - do not edit by hand
 window.KBUILT_CONFIG = {
   ENGINE_URL: ${JSON.stringify(normalized)},
   API_BASE: "/api",

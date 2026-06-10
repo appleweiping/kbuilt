@@ -2,7 +2,7 @@
   "name": "kbuilt-web",
   "version": "0.1.0",
   "private": true,
-  "description": "kbuilt front-end — terminal-style media downloader UI (Vercel)",
+  "description": "kbuilt public multi-site media downloader UI (Vercel)",
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js && npx serve public"
