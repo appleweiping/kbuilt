@@ -27,6 +27,13 @@ const BANNER = String.raw`
 |_|\_\_.__/ \__,_|_|_|\__|   high-quality video downloader
 `;
 
+// ---- escaping (everything dynamic that goes through innerHTML) ------------
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
 // ---- tiny terminal helpers ----------------------------------------------
 function line(text, cls = "") {
   const el = document.createElement("span");
@@ -46,17 +53,46 @@ function htmlLine(html, cls = "") {
 }
 function clearLog() { logEl.innerHTML = ""; }
 
+// animated spinner log line (returns a handle with .stop())
+const SPIN_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const REDUCED_MOTION = window.matchMedia
+  && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function spinnerLine(text) {
+  const el = line((REDUCED_MOTION ? "→" : SPIN_FRAMES[0]) + " " + text, "info");
+  let i = 0;
+  const id = REDUCED_MOTION ? 0 : setInterval(() => {
+    i = (i + 1) % SPIN_FRAMES.length;
+    el.textContent = SPIN_FRAMES[i] + " " + text;
+  }, 80);
+  return {
+    el,
+    stop() { if (id) clearInterval(id); el.remove(); },
+  };
+}
+
+function setBusy(busy) {
+  goBtn.disabled = busy;
+  goBtn.classList.toggle("busy", busy);
+  goBtn.querySelector(".go-label").textContent = busy ? t("busy") : t("download");
+  goBtn.setAttribute("aria-busy", busy ? "true" : "false");
+}
+
 // ---- i18n + theme --------------------------------------------------------
 function applyLang(lang) {
   LANG = I18N[lang] ? lang : "en";
   localStorage.setItem("kbuilt_lang", LANG);
   document.documentElement.lang = LANG;
-  // text nodes flagged with data-t
+  // text nodes flagged with data-t (works for HTML and SVG <text> alike)
   document.querySelectorAll("[data-t]").forEach((el) => {
     el.textContent = t(el.getAttribute("data-t"));
   });
+  // aria-labels flagged with data-t-aria
+  document.querySelectorAll("[data-t-aria]").forEach((el) => {
+    el.setAttribute("aria-label", t(el.getAttribute("data-t-aria")));
+  });
   $("hint").textContent = t("hint");
   urlEl.placeholder = t("urlPlaceholder");
+  renderHistory();
   checkEngine();
 }
 
@@ -92,6 +128,7 @@ function initControls() {
 // typewriter banner
 (function typeBanner() {
   const b = $("banner");
+  if (REDUCED_MOTION) { b.textContent = BANNER; return; }
   let i = 0;
   const timer = setInterval(() => {
     b.textContent = BANNER.slice(0, i++);
@@ -103,7 +140,7 @@ function initControls() {
 async function checkEngine() {
   const s = $("engine-status");
   if (!ENGINE) {
-    s.innerHTML = `<span class="down">● </span>${t("engineUnconfigured")}`;
+    s.innerHTML = `<span class="down">● </span>${esc(t("engineUnconfigured"))}`;
     return;
   }
   s.textContent = t("engineChecking");
@@ -111,10 +148,75 @@ async function checkEngine() {
     const r = await fetch(ENGINE, { headers: { Accept: "application/json" } });
     const j = await r.json();
     const ver = (j.cobalt && j.cobalt.version) ? j.cobalt.version : "";
-    s.innerHTML = `<span class="up">● </span>${t("engineOnline")}${ver ? " " + ver : ""}`;
+    s.innerHTML = `<span class="up">● </span>${esc(t("engineOnline"))}${ver ? " " + esc(ver) : ""}`;
   } catch (e) {
-    s.innerHTML = `<span class="down">● </span>${t("engineOffline")}`;
+    s.innerHTML = `<span class="down">● </span>${esc(t("engineOffline"))}`;
   }
+}
+
+// ---- download history (last 10, localStorage) ------------------------------
+const HISTORY_KEY = "kbuilt_history";
+function getHistory() {
+  try {
+    const h = JSON.parse(localStorage.getItem(HISTORY_KEY));
+    return Array.isArray(h) ? h : [];
+  } catch { return []; }
+}
+function pushHistory(entry) {
+  const h = getHistory();
+  h.unshift(entry);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 10))); } catch {}
+  renderHistory();
+}
+function clearHistory() {
+  try { localStorage.removeItem(HISTORY_KEY); } catch {}
+  renderHistory();
+}
+function renderHistory() {
+  const list = $("history-list");
+  const count = $("history-count");
+  if (!list) return;
+  const h = getHistory();
+  count.textContent = h.length ? `(${h.length})` : "";
+  list.innerHTML = "";
+  if (!h.length) {
+    const li = document.createElement("li");
+    li.className = "history-empty";
+    li.textContent = t("historyEmpty");
+    list.appendChild(li);
+    $("history-clear").hidden = true;
+    return;
+  }
+  $("history-clear").hidden = false;
+  h.forEach((item) => {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "history-row";
+    btn.title = t("historyRefill");
+
+    const status = document.createElement("span");
+    status.className = "h-status " + (item.ok ? "ok" : "err");
+    status.textContent = item.ok ? "✓" : "✗";
+
+    const time = document.createElement("span");
+    time.className = "h-time";
+    time.textContent = new Date(item.ts).toLocaleString(LANG, {
+      month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
+
+    const url = document.createElement("span");
+    url.className = "h-url";
+    url.textContent = item.url; // textContent => injection-safe
+
+    btn.append(status, time, url);
+    btn.addEventListener("click", () => {
+      urlEl.value = item.url;
+      urlEl.focus();
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
+  });
 }
 
 // ---- the download flow ---------------------------------------------------
@@ -127,7 +229,7 @@ async function startDownload() {
     return;
   }
 
-  goBtn.disabled = true;
+  setBusy(true);
   clearLog();
   line(t("fetching", url), "dim");
 
@@ -140,7 +242,7 @@ async function startDownload() {
     localProcessing: "disabled",
   };
 
-  const waking = line(t("contacting"), "info");
+  const waking = spinnerLine(t("contacting"));
 
   try {
     const res = await fetch(ENGINE, {
@@ -149,14 +251,16 @@ async function startDownload() {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    waking.remove();
+    waking.stop();
     handleResponse(data, url);
   } catch (e) {
-    waking.remove();
-    line(t("unreachable"), "err");
+    waking.stop();
+    // network-level failure (DNS, CORS, cold-start, offline) — engine never answered
+    line(t("errNetwork"), "err");
     line("  " + e.message, "dim");
+    pushHistory({ url, ok: false, ts: Date.now() });
   } finally {
-    goBtn.disabled = false;
+    setBusy(false);
   }
 }
 
@@ -172,6 +276,29 @@ function triggerSave(fileUrl, filename) {
   a.remove();
 }
 
+function fxPulse() {
+  if (window.kbuiltFX && typeof window.kbuiltFX.pulse === "function") {
+    window.kbuiltFX.pulse();
+  }
+}
+
+// classify a cobalt error code into a friendly i18n message
+function explainError(code, originalUrl) {
+  const isYt = /youtube|youtu\.?be/i.test(code) || /youtu\.?be|youtube\.com/i.test(originalUrl);
+  if (isYt) {
+    line(t("errYouTube"), "err");
+    line(t("ytNote1"), "dim");
+    line(t("ytNote2"), "dim");
+  } else if (/link\.(invalid|unsupported)|service\.(disabled|notfound)|url/i.test(code)) {
+    line(t("errUnsupported"), "err");
+  } else if (/fetch|content|empty|unavailable|private|region/i.test(code)) {
+    line(t("errFetch"), "err");
+  } else {
+    line(t("errorPrefix") + code, "err");
+  }
+  line(t("errorCode", code), "dim");
+}
+
 function handleResponse(data, originalUrl) {
   switch (data.status) {
     case "tunnel":
@@ -180,19 +307,23 @@ function handleResponse(data, originalUrl) {
       line(t("streamReady") + (fn ? `: ${fn}` : ""), "ok");
       line(t("saving"), "info");
       triggerSave(data.url, data.filename);
-      htmlLine(t("didntStart", data.url), "dim");
+      htmlLine(t("didntStart", esc(data.url)), "dim");
+      fxPulse();
+      pushHistory({ url: originalUrl, ok: true, ts: Date.now() });
       offerAi(originalUrl);
       break;
     }
     case "picker": {
       line(t("pickerFound"), "warn");
       (data.picker || []).forEach((item, i) => {
-        const label = item.type ? `[${item.type}]` : "[item]";
-        htmlLine(`  ${String(i + 1).padStart(2)}. ${label} <a href="${item.url}" target="_blank" rel="noopener">download</a>`, "");
+        const label = item.type ? `[${esc(item.type)}]` : "[item]";
+        htmlLine(`  ${String(i + 1).padStart(2)}. ${label} <a href="${esc(item.url)}" target="_blank" rel="noopener">download</a>`, "");
       });
       if (data.audio) {
-        htmlLine(`  audio: <a href="${data.audio}" target="_blank" rel="noopener">download</a>`, "dim");
+        htmlLine(`  audio: <a href="${esc(data.audio)}" target="_blank" rel="noopener">download</a>`, "dim");
       }
+      fxPulse();
+      pushHistory({ url: originalUrl, ok: true, ts: Date.now() });
       offerAi(originalUrl);
       break;
     }
@@ -205,11 +336,8 @@ function handleResponse(data, originalUrl) {
     }
     case "error": {
       const code = (data.error && data.error.code) ? data.error.code : "unknown";
-      line(t("errorPrefix") + code, "err");
-      if (/youtube/i.test(code) || /youtu\.?be/i.test(originalUrl)) {
-        line(t("ytNote1"), "dim");
-        line(t("ytNote2"), "dim");
-      }
+      explainError(code, originalUrl);
+      pushHistory({ url: originalUrl, ok: false, ts: Date.now() });
       break;
     }
     default:
@@ -220,7 +348,7 @@ function handleResponse(data, originalUrl) {
 
 // ---- AI extras (subtitles translation / one-line summary) ----------------
 function offerAi(url) {
-  const wrap = htmlLine(t("aiOffer", url), "dim");
+  const wrap = htmlLine(t("aiOffer", esc(url)), "dim");
   wrap.querySelectorAll("[data-ai]").forEach((a) => {
     a.addEventListener("click", (e) => { e.preventDefault(); aiCall(a.getAttribute("data-ai"), url); });
   });
@@ -245,9 +373,29 @@ async function aiCall(kind, url) {
   }
 }
 
+// ---- scroll-triggered section reveals --------------------------------------
+function initReveals() {
+  const targets = document.querySelectorAll(".reveal");
+  if (!("IntersectionObserver" in window) || REDUCED_MOTION) {
+    targets.forEach((el) => el.classList.add("visible"));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.18, rootMargin: "0px 0px -40px 0px" });
+  targets.forEach((el) => io.observe(el));
+}
+
 // ---- wire up events ------------------------------------------------------
 goBtn.addEventListener("click", startDownload);
 $("form").addEventListener("submit", (e) => { e.preventDefault(); startDownload(); });
 urlEl.addEventListener("focus", () => { $("hint").classList.add("cursor"); });
+$("history-clear").addEventListener("click", clearHistory);
 
 initControls();
+initReveals();

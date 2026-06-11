@@ -5,73 +5,207 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>kbuilt — 视频高质量下载</title>
   <meta name="description" content="零安装、浏览器即用的公开视频下载器。支持 YouTube / Bilibili / 抖音 / TikTok / X / Instagram / Reddit / Twitch / Vimeo / SoundCloud 等 20+ 站点。" />
+  <meta name="theme-color" content="#0b0d0e" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
+  <!-- NOTE: if you change this importmap, recompute the sha256 hash in
+       web/vercel.json's Content-Security-Policy (script-src). -->
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js"}}</script>
 </head>
 <body>
-  <main class="terminal" id="app">
-    <header class="bar">
-      <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
-      <span class="title">kbuilt — media downloader</span>
-      <span class="grow"></span>
-      <select id="lang" class="chip" aria-label="language"></select>
-      <button id="theme" class="chip" aria-label="toggle theme" title="theme">◐</button>
-    </header>
+  <canvas id="fx" aria-hidden="true"></canvas>
 
-    <section class="screen">
-      <pre class="banner" id="banner"></pre>
+  <div class="page">
+    <!-- ======================= HERO / TOOL ======================= -->
+    <section class="hero">
+      <p class="tagline" data-t="heroTagline"></p>
 
-      <div class="prompt-line">
-        <span class="ps1">kbuilt<span class="muted">@web</span>:~$</span>
-        <span class="typed" id="hint"></span>
-      </div>
+      <main class="terminal" id="app">
+        <header class="bar">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+          <span class="title">kbuilt — media downloader</span>
+          <span class="grow"></span>
+          <select id="lang" class="chip" data-t-aria="langAria"></select>
+          <button id="theme" class="chip" data-t-aria="themeAria" title="theme">◐</button>
+        </header>
 
-      <form id="form" class="input-row" autocomplete="off">
-        <span class="ps1">&gt;</span>
-        <input id="url" name="url" type="text" spellcheck="false" aria-label="video url" />
-      </form>
+        <section class="screen">
+          <pre class="banner" id="banner" aria-hidden="true"></pre>
 
-      <div class="controls" id="controls">
-        <label><span data-t="quality"></span>
-          <select id="quality">
-            <option value="max">max</option>
-            <option value="2160">2160p</option>
-            <option value="1080" selected>1080p</option>
-            <option value="720">720p</option>
-            <option value="480">480p</option>
-          </select>
-        </label>
-        <label><span data-t="mode"></span>
-          <select id="mode">
-            <option value="auto" selected data-t="modeAuto"></option>
-            <option value="audio" data-t="modeAudio"></option>
-            <option value="mute" data-t="modeMute"></option>
-          </select>
-        </label>
-        <label><span data-t="audio"></span>
-          <select id="afmt">
-            <option value="best" selected>best</option>
-            <option value="mp3">mp3</option>
-            <option value="m4a">m4a</option>
-            <option value="opus">opus</option>
-            <option value="wav">wav</option>
-          </select>
-        </label>
-        <button type="button" id="go">⬇ <span data-t="download"></span></button>
-      </div>
+          <div class="prompt-line">
+            <span class="ps1">kbuilt<span class="muted">@web</span>:~$</span>
+            <span class="typed" id="hint"></span>
+          </div>
 
-      <div class="log" id="log" aria-live="polite"></div>
+          <form id="form" class="input-row" autocomplete="off">
+            <span class="ps1" aria-hidden="true">&gt;</span>
+            <label class="sr-only" for="url" data-t="urlAria"></label>
+            <input id="url" name="url" type="text" inputmode="url" spellcheck="false" data-t-aria="urlAria" />
+          </form>
+
+          <div class="controls" id="controls">
+            <label for="quality"><span data-t="quality"></span>
+              <select id="quality" data-t-aria="quality">
+                <option value="max">max</option>
+                <option value="2160">2160p</option>
+                <option value="1080" selected>1080p</option>
+                <option value="720">720p</option>
+                <option value="480">480p</option>
+              </select>
+            </label>
+            <label for="mode"><span data-t="mode"></span>
+              <select id="mode" data-t-aria="mode">
+                <option value="auto" selected data-t="modeAuto"></option>
+                <option value="audio" data-t="modeAudio"></option>
+                <option value="mute" data-t="modeMute"></option>
+              </select>
+            </label>
+            <label for="afmt"><span data-t="audio"></span>
+              <select id="afmt" data-t-aria="audio">
+                <option value="best" selected>best</option>
+                <option value="mp3">mp3</option>
+                <option value="m4a">m4a</option>
+                <option value="opus">opus</option>
+                <option value="wav">wav</option>
+              </select>
+            </label>
+            <button type="button" id="go"><span class="go-icon" aria-hidden="true">⬇</span> <span class="go-label" data-t="download"></span></button>
+          </div>
+
+          <div class="log" id="log" aria-live="polite"></div>
+
+          <details class="history" id="history">
+            <summary>
+              <span class="history-caret" aria-hidden="true">▸</span>
+              <span data-t="historyTitle"></span>
+              <span class="history-count" id="history-count"></span>
+            </summary>
+            <ul class="history-list" id="history-list"></ul>
+            <button type="button" id="history-clear" class="chip history-clear" data-t="historyClear"></button>
+          </details>
+        </section>
+
+        <footer class="status" id="status">
+          <span id="engine-status"></span>
+          <span class="grow"></span>
+          <span class="muted" data-t="footerNote"></span>
+        </footer>
+      </main>
+
+      <a class="scroll-hint" href="#how" data-t="scrollHint"></a>
     </section>
 
-    <footer class="status" id="status">
-      <span id="engine-status"></span>
-      <span class="grow"></span>
-      <span class="muted" data-t="footerNote"></span>
+    <!-- ======================= HOW IT WORKS ======================= -->
+    <section class="section" id="how">
+      <h2 class="section-title reveal" data-t="howTitle"></h2>
+
+      <div class="pipeline reveal" role="img" aria-label="Browser → Vercel static → cobalt engine">
+        <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg" class="pipeline-svg">
+          <defs>
+            <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="p-arrowhead" />
+            </marker>
+          </defs>
+
+          <!-- connectors -->
+          <path class="p-flow f1" d="M212 95 C 240 95, 250 95, 278 95" marker-end="url(#arrowhead)" />
+          <path class="p-flow f2" d="M482 95 C 510 95, 520 95, 548 95" marker-end="url(#arrowhead)" />
+
+          <!-- node 1: browser -->
+          <g class="p-node n1">
+            <rect x="32" y="48" width="176" height="94" rx="12" />
+            <circle cx="52" cy="64" r="3.5" class="p-dot" />
+            <circle cx="64" cy="64" r="3.5" class="p-dot" />
+            <circle cx="76" cy="64" r="3.5" class="p-dot" />
+            <line x1="44" y1="76" x2="196" y2="76" class="p-line" />
+            <text x="120" y="106" class="p-glyph" text-anchor="middle">▶</text>
+            <text x="120" y="130" class="p-label" text-anchor="middle" data-t="howNode1"></text>
+          </g>
+
+          <!-- node 2: vercel static -->
+          <g class="p-node n2">
+            <rect x="282" y="48" width="196" height="94" rx="12" />
+            <text x="380" y="100" class="p-glyph" text-anchor="middle">▲</text>
+            <text x="380" y="130" class="p-label" text-anchor="middle" data-t="howNode2"></text>
+          </g>
+
+          <!-- node 3: cobalt engine -->
+          <g class="p-node n3">
+            <rect x="552" y="48" width="176" height="94" rx="12" />
+            <text x="640" y="102" class="p-glyph" text-anchor="middle">⬇</text>
+            <text x="640" y="130" class="p-label" text-anchor="middle" data-t="howNode3"></text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="steps">
+        <article class="step reveal">
+          <h3 data-t="howStep1t"></h3>
+          <p data-t="howStep1d"></p>
+        </article>
+        <article class="step reveal">
+          <h3 data-t="howStep2t"></h3>
+          <p data-t="howStep2d"></p>
+        </article>
+        <article class="step reveal">
+          <h3 data-t="howStep3t"></h3>
+          <p data-t="howStep3d"></p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ======================= PLATFORMS ======================= -->
+    <section class="section" id="platforms">
+      <h2 class="section-title reveal" data-t="platformsTitle"></h2>
+      <ul class="platform-grid reveal">
+        <li class="platform p-youtube"><span class="p-mark" aria-hidden="true">▶</span>YouTube</li>
+        <li class="platform p-bilibili"><span class="p-mark" aria-hidden="true">◆</span>Bilibili</li>
+        <li class="platform p-douyin"><span class="p-mark" aria-hidden="true">♪</span>抖音 Douyin</li>
+        <li class="platform p-tiktok"><span class="p-mark" aria-hidden="true">♪</span>TikTok</li>
+        <li class="platform p-x"><span class="p-mark" aria-hidden="true">𝕏</span>X / Twitter</li>
+        <li class="platform p-instagram"><span class="p-mark" aria-hidden="true">◎</span>Instagram</li>
+        <li class="platform p-reddit"><span class="p-mark" aria-hidden="true">●</span>Reddit</li>
+        <li class="platform p-twitch"><span class="p-mark" aria-hidden="true">▮▮</span>Twitch</li>
+        <li class="platform p-vimeo"><span class="p-mark" aria-hidden="true">▼</span>Vimeo</li>
+        <li class="platform p-soundcloud"><span class="p-mark" aria-hidden="true">♫</span>SoundCloud</li>
+        <li class="platform p-pinterest"><span class="p-mark" aria-hidden="true">◉</span>Pinterest</li>
+        <li class="platform p-tumblr"><span class="p-mark" aria-hidden="true">t</span>Tumblr</li>
+      </ul>
+      <p class="platforms-note reveal muted" data-t="platformsNote"></p>
+    </section>
+
+    <!-- ======================= FAQ ======================= -->
+    <section class="section" id="faq">
+      <h2 class="section-title reveal" data-t="faqTitle"></h2>
+      <div class="faq-list">
+        <details class="faq-item reveal">
+          <summary data-t="faqQ1"></summary>
+          <p data-t="faqA1"></p>
+        </details>
+        <details class="faq-item reveal">
+          <summary data-t="faqQ2"></summary>
+          <p data-t="faqA2"></p>
+        </details>
+        <details class="faq-item reveal">
+          <summary data-t="faqQ3"></summary>
+          <p data-t="faqA3"></p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ======================= FOOTER ======================= -->
+    <footer class="site-footer">
+      <span class="footer-brand">kbuilt</span>
+      <span class="footer-sep" aria-hidden="true">·</span>
+      <a href="https://github.com/appleweiping/kbuilt" target="_blank" rel="noopener">GitHub</a>
+      <span class="footer-sep" aria-hidden="true">·</span>
+      <span data-t="licenseNote"></span>
     </footer>
-  </main>
+  </div>
 
   <script src="/config.js"></script>
   <script src="/i18n.js"></script>
   <script src="/app.js"></script>
+  <script type="module" src="/fx.js"></script>
 </body>
 </html>
