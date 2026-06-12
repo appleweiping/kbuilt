@@ -34,6 +34,15 @@ function esc(s) {
   }[c]));
 }
 
+// Engine responses become hrefs and one auto-clicked link; esc() can't stop a
+// javascript:/data: protocol, so accept only absolute http(s) URLs from it.
+function safeHttpUrl(u) {
+  try {
+    const p = new URL(String(u)).protocol;
+    return (p === "http:" || p === "https:") ? String(u) : "";
+  } catch { return ""; }
+}
+
 // ---- tiny terminal helpers ----------------------------------------------
 function line(text, cls = "") {
   const el = document.createElement("span");
@@ -303,11 +312,18 @@ function handleResponse(data, originalUrl) {
   switch (data.status) {
     case "tunnel":
     case "redirect": {
+      const dl = safeHttpUrl(data.url);
+      if (!dl) {
+        line(t("errFetch"), "err");
+        line("  blocked non-http(s) url from engine", "dim");
+        pushHistory({ url: originalUrl, ok: false, ts: Date.now() });
+        break;
+      }
       const fn = data.filename || "";
       line(t("streamReady") + (fn ? `: ${fn}` : ""), "ok");
       line(t("saving"), "info");
-      triggerSave(data.url, data.filename);
-      htmlLine(t("didntStart", esc(data.url)), "dim");
+      triggerSave(dl, data.filename);
+      htmlLine(t("didntStart", esc(dl)), "dim");
       fxPulse();
       pushHistory({ url: originalUrl, ok: true, ts: Date.now() });
       offerAi(originalUrl);
@@ -316,11 +332,14 @@ function handleResponse(data, originalUrl) {
     case "picker": {
       line(t("pickerFound"), "warn");
       (data.picker || []).forEach((item, i) => {
+        const safe = safeHttpUrl(item.url);
+        if (!safe) return;
         const label = item.type ? `[${esc(item.type)}]` : "[item]";
-        htmlLine(`  ${String(i + 1).padStart(2)}. ${label} <a href="${esc(item.url)}" target="_blank" rel="noopener">download</a>`, "");
+        htmlLine(`  ${String(i + 1).padStart(2)}. ${label} <a href="${esc(safe)}" target="_blank" rel="noopener">download</a>`, "");
       });
-      if (data.audio) {
-        htmlLine(`  audio: <a href="${esc(data.audio)}" target="_blank" rel="noopener">download</a>`, "dim");
+      const audio = safeHttpUrl(data.audio);
+      if (audio) {
+        htmlLine(`  audio: <a href="${esc(audio)}" target="_blank" rel="noopener">download</a>`, "dim");
       }
       fxPulse();
       pushHistory({ url: originalUrl, ok: true, ts: Date.now() });
